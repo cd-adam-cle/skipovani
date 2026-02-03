@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { format } from 'date-fns';
 import { SUBJECTS, Subject, DEFAULT_SCHEDULE } from '@/lib/config';
+import { supabase } from '@/lib/supabase';
 import SubjectCard from '@/components/SubjectCard';
 import ScheduleBuilder from '@/components/ScheduleBuilder';
 import CalendarView from '@/components/CalendarView';
@@ -21,6 +22,7 @@ export default function Home() {
   const [calendarSkips, setCalendarSkips] = useState<string[]>([]);
 
   const [mounted, setMounted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Initialize
   useEffect(() => {
@@ -33,43 +35,90 @@ export default function Home() {
     setMounted(true);
   }, []);
 
-  const loadData = (user: string) => {
-    const savedSkips = localStorage.getItem(`absence_skips_${user}`);
-    const savedCanceled = localStorage.getItem(`absence_canceled_${user}`);
-    const savedSchedule = localStorage.getItem(`absence_schedule_${user}`);
-    const savedExceptions = localStorage.getItem(`absence_exceptions_${user}`);
-    const savedCalSkips = localStorage.getItem(`absence_calskips_${user}`);
+  const loadData = async (user: string) => {
+    setIsLoading(true);
+    try {
+      // 1. Fetch Global Settings (Default Schedule)
+      const { data: globalData } = await supabase
+        .from('global_settings')
+        .select('setting_value')
+        .eq('setting_key', 'default_schedule')
+        .single();
 
-    if (savedSkips) setSkips(JSON.parse(savedSkips));
-    else {
-      const initial: Record<string, number> = {};
-      SUBJECTS.forEach(s => initial[s.id] = 0);
-      setSkips(initial);
+      const globalDefaultSchedule = globalData?.setting_value || DEFAULT_SCHEDULE;
+
+      // 2. Fetch User Data
+      const { data, error } = await supabase
+        .from('user_data')
+        .select('*')
+        .eq('username', user)
+        .single();
+
+      if (data) {
+        // User exists, load their data
+        setSkips(data.skips || {});
+        setManualCanceled(data.manual_canceled || {});
+        // Use user's schedule if they have one, otherwise fallback to global default
+        setWeeklySchedule(data.weekly_schedule || globalDefaultSchedule);
+        setCalendarExceptions(data.calendar_exceptions || []);
+        setCalendarSkips(data.calendar_skips || []);
+      } else {
+        // User doesn't exist, create them
+        const initialSkips: Record<string, number> = {};
+        const initialCanceled: Record<string, number> = {};
+        SUBJECTS.forEach(s => {
+          initialSkips[s.id] = 0;
+          initialCanceled[s.id] = 0;
+        });
+
+        // Use global default schedule for new user
+        setWeeklySchedule(globalDefaultSchedule);
+        setSkips(initialSkips);
+        setManualCanceled(initialCanceled);
+
+        // Save initial row
+        await supabase.from('user_data').insert({
+          username: user,
+          skips: initialSkips,
+          manual_canceled: initialCanceled,
+          weekly_schedule: globalDefaultSchedule, // Explicitly save the default so they have a copy
+          calendar_exceptions: [],
+          calendar_skips: []
+        });
+      }
+    } catch (e) {
+      console.error("Error loading data:", e);
+      // Fallback to local storage or defaults if offline?
+      // For now we persist with error but maybe show toast
+    } finally {
+      setIsLoading(false);
     }
-
-    if (savedCanceled) setManualCanceled(JSON.parse(savedCanceled));
-    else {
-      const initial: Record<string, number> = {};
-      SUBJECTS.forEach(s => initial[s.id] = 0);
-      setManualCanceled(initial);
-    }
-
-    if (savedSchedule) setWeeklySchedule(JSON.parse(savedSchedule));
-    else setWeeklySchedule(DEFAULT_SCHEDULE);
-
-    if (savedExceptions) setCalendarExceptions(JSON.parse(savedExceptions));
-    if (savedCalSkips) setCalendarSkips(JSON.parse(savedCalSkips));
   };
 
+  // Debounced Save
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   useEffect(() => {
-    if (mounted && username) {
-      localStorage.setItem(`absence_skips_${username}`, JSON.stringify(skips));
-      localStorage.setItem(`absence_canceled_${username}`, JSON.stringify(manualCanceled));
-      localStorage.setItem(`absence_schedule_${username}`, JSON.stringify(weeklySchedule));
-      localStorage.setItem(`absence_exceptions_${username}`, JSON.stringify(calendarExceptions));
-      localStorage.setItem(`absence_calskips_${username}`, JSON.stringify(calendarSkips));
+    if (mounted && username && !isLoading) {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+
+      saveTimeoutRef.current = setTimeout(async () => {
+        try {
+          await supabase.from('user_data').upsert({
+            username: username,
+            skips: skips,
+            manual_canceled: manualCanceled,
+            weekly_schedule: weeklySchedule,
+            calendar_exceptions: calendarExceptions,
+            calendar_skips: calendarSkips,
+            updated_at: new Date().toISOString()
+          });
+        } catch (e) {
+          console.error("Error saving data:", e);
+        }
+      }, 1000); // Save after 1 second of no changes
     }
-  }, [skips, manualCanceled, weeklySchedule, calendarExceptions, calendarSkips, mounted, username]);
+  }, [skips, manualCanceled, weeklySchedule, calendarExceptions, calendarSkips, mounted, username, isLoading]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
