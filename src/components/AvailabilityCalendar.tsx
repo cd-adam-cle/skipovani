@@ -15,13 +15,13 @@ const WEIGHT_COLORS: Record<AvailabilityWeight, string> = {
   ideal: 'bg-emerald-400 text-white',
   ok: 'bg-slate-200 text-slate-700',
   rather_no: 'bg-amber-400 text-white',
-  no_go: 'bg-red-500 text-white',
+  no_go: 'bg-rose-500 text-white',
 };
 const WEIGHT_DOT: Record<AvailabilityWeight, string> = {
   ideal: 'bg-emerald-400',
   ok: 'bg-slate-300',
   rather_no: 'bg-amber-400',
-  no_go: 'bg-red-500',
+  no_go: 'bg-rose-500',
 };
 
 interface Props {

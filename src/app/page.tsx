@@ -9,7 +9,7 @@ export default function HomePage() {
           Kam jedeme?
         </h1>
         <p className="text-lg text-slate-500 mb-10 max-w-md mx-auto">
-          Konec nekonečných debat v chatu. Nechte appku najít termín a typ výletu, který sedí celé partě.
+          Konec nekonečných debat v chatu. Každý vyznačí, kdy má čas — appka ukáže termíny, co se nejvíc překrývají.
         </p>
 
         <Link
@@ -21,9 +21,9 @@ export default function HomePage() {
 
         <div className="mt-20 grid grid-cols-1 sm:grid-cols-3 gap-6 text-left">
           {[
-            { icon: '📅', title: 'Vyplňte dostupnost', desc: 'Každý označí, kdy může a kdy ne. Přetáhnutím v kalendáři.' },
-            { icon: '🎯', title: 'Řekněte, co chcete', desc: 'Pláž nebo hory? Lyže nebo relax? Rychlé nastavení preferencí.' },
-            { icon: '🏆', title: 'Engine navrhne 5 variant', desc: 'Seřazené podle toho, kolik lidí může a jak moc to sedí všem.' },
+            { icon: '📅', title: 'Vyplňte kalendář', desc: 'Každý přetáhnutím označí, kdy může a kolik dní by mu sedělo.' },
+            { icon: '🔥', title: 'Najděte překryv', desc: 'Heatmapa hned ukáže dny, kdy může nejvíc lidí z party.' },
+            { icon: '💡', title: 'Vyberte destinaci', desc: 'Chata, Chorvatsko, roadtrip… Přidávejte nápady a hlasujte.' },
           ].map(item => (
             <div key={item.icon} className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
               <div className="text-3xl mb-3">{item.icon}</div>
