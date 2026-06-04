@@ -14,10 +14,11 @@ interface Props {
   onAdd: (title: string, emoji: string) => void;
   onRename: (ideaId: string, newTitle: string) => void;
   onAddNote: (ideaId: string, body: string) => void;
+  onSetDuration: (ideaId: string, days: number) => void;
 }
 
 export default function IdeaBoard({
-  ideas, votes, notes, renames, myParticipantId, onVote, onAdd, onRename, onAddNote,
+  ideas, votes, notes, renames, myParticipantId, onVote, onAdd, onRename, onAddNote, onSetDuration,
 }: Props) {
   const [title, setTitle] = useState('');
   const [open, setOpen] = useState(false);
@@ -64,6 +65,7 @@ export default function IdeaBoard({
             onVote={onVote}
             onRename={onRename}
             onAddNote={onAddNote}
+            onSetDuration={onSetDuration}
           />
         ))}
       </div>
@@ -120,14 +122,25 @@ interface RowProps {
   onVote: (ideaId: string, value: VoteValue) => void;
   onRename: (ideaId: string, newTitle: string) => void;
   onAddNote: (ideaId: string, body: string) => void;
+  onSetDuration: (ideaId: string, days: number) => void;
 }
 
-function IdeaRow({ idea, tally, notes, renames, canInteract, onVote, onRename, onAddNote }: RowProps) {
+function IdeaRow({ idea, tally, notes, renames, canInteract, onVote, onRename, onAddNote, onSetDuration }: RowProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(idea.title);
   const [showNotes, setShowNotes] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [noteDraft, setNoteDraft] = useState('');
+  const [editingDur, setEditingDur] = useState(false);
+  const [durDraft, setDurDraft] = useState(String(idea.duration_days));
+
+  const commitDur = () => {
+    setEditingDur(false);
+    const n = parseInt(durDraft, 10);
+    if (!isNaN(n) && n >= 1 && n <= 60 && n !== idea.duration_days) onSetDuration(idea.id, n);
+    else setDurDraft(String(idea.duration_days));
+  };
+  const dayLabel = (n: number) => (n === 1 ? 'den' : n < 5 ? 'dny' : 'dní');
 
   const score = tally.up - tally.down;
 
@@ -183,6 +196,37 @@ function IdeaRow({ idea, tally, notes, renames, canInteract, onVote, onRename, o
           )}
 
           <div className="flex items-center gap-3 mt-1 text-xs text-slate-400">
+            {editingDur ? (
+              <span className="inline-flex items-center gap-1">
+                <input
+                  autoFocus
+                  type="number"
+                  min={1}
+                  max={60}
+                  value={durDraft}
+                  onChange={e => setDurDraft(e.target.value)}
+                  onBlur={commitDur}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') commitDur();
+                    if (e.key === 'Escape') { setDurDraft(String(idea.duration_days)); setEditingDur(false); }
+                  }}
+                  className="w-12 border border-indigo-300 rounded-md px-1.5 py-0.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                />
+                <span className="text-slate-400">{dayLabel(parseInt(durDraft) || idea.duration_days)}</span>
+              </span>
+            ) : (
+              <button
+                onClick={() => canInteract && (setDurDraft(String(idea.duration_days)), setEditingDur(true))}
+                disabled={!canInteract}
+                title={canInteract ? 'Klikni a uprav délku' : undefined}
+                className="inline-flex items-center gap-1 font-medium text-slate-500 hover:text-indigo-600 disabled:hover:text-slate-500 disabled:cursor-default transition-colors"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                ~{idea.duration_days} {dayLabel(idea.duration_days)}
+              </button>
+            )}
             {(tally.up > 0 || tally.down > 0) && (
               <span className="font-medium">
                 skóre <strong className={score > 0 ? 'text-emerald-600' : score < 0 ? 'text-rose-500' : 'text-slate-500'}>

@@ -19,6 +19,7 @@ export interface Idea {
   id: string;
   title: string;
   emoji: string;
+  duration_days: number;
   created_by: string | null;
   created_at: string;
 }

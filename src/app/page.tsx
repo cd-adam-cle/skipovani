@@ -197,6 +197,12 @@ export default function Home() {
     if (data) setNotes(n => [...n, data as IdeaNote]);
   };
 
+  const handleSetDuration = async (ideaId: string, days: number) => {
+    if (!myId) return;
+    setIdeas(is => is.map(i => i.id === ideaId ? { ...i, duration_days: days } : i));
+    await supabase.from('idea').update({ duration_days: days }).eq('id', ideaId);
+  };
+
   const avgDays = useMemo(() => {
     const ids = new Set(availability.map(a => a.participant_id));
     const active = participants.filter(p => ids.has(p.id));
@@ -412,6 +418,7 @@ export default function Home() {
             onAdd={handleAddIdea}
             onRename={handleRename}
             onAddNote={handleAddNote}
+            onSetDuration={handleSetDuration}
           />
         </section>
       </div>

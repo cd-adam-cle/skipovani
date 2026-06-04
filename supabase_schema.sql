@@ -38,6 +38,7 @@ create table idea (
   id              uuid primary key default gen_random_uuid(),
   title           text not null,
   emoji           text not null default '📍',
+  duration_days   int not null default 3,   -- "na jak dlouho" (editovatelné)
   created_by      uuid references participant(id) on delete set null,
   created_at      timestamptz default now()
 );
