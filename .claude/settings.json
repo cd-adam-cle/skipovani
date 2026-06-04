@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd /home/adam-zikmund/programing/skipovani *)",
+      "Bash(npx next *)",
+      "Bash(psql --version)",
+      "Bash(gh auth *)",
+      "Bash(env)",
+      "Bash(git checkout *)",
+      "Bash(git merge *)",
+      "Bash(git branch *)"
+    ],
+    "additionalDirectories": [
+      "/home/adam-zikmund/programing/skipovani/src/app/t/[slug]/decide"
+    ]
+  }
+}

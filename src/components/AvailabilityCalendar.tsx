@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, isWithinInterval } from 'date-fns';
 import { cs } from 'date-fns/locale';
 import type { AvailabilityWeight } from '@/lib/types';
@@ -33,7 +33,13 @@ interface Props {
 
 export default function AvailabilityCalendar({ horizonStart, horizonEnd, value, onChange }: Props) {
   const [currentMonth, setCurrentMonth] = useState(new Date(horizonStart + 'T00:00:00Z'));
-  const [dragging, setDragging] = useState<AvailabilityWeight | null>(null);
+  // Barva, kterou aktuálně "malujeme" při držení a přejíždění prstem/myší.
+  const paintRef = useRef<AvailabilityWeight | null>(null);
+  // Klíče dnů, na které jsme během jednoho tahu už barvu nanesli (ať nepřeklápíme tam a zpět).
+  const paintedRef = useRef<Set<string>>(new Set());
+  // Rozlišení tapu od tahu: tap = jen jeden den, neproběhlo přejetí.
+  const movedRef = useRef(false);
+  const gridRef = useRef<HTMLDivElement>(null);
 
   const start = startOfMonth(currentMonth);
   const end = endOfMonth(currentMonth);
@@ -49,16 +55,55 @@ export default function AvailabilityCalendar({ horizonStart, horizonEnd, value, 
 
   const formatKey = (d: Date) => format(d, 'yyyy-MM-dd');
 
-  const cycleWeight = (key: string) => {
+  const nextWeight = (key: string): AvailabilityWeight => {
     const current = value[key] || 'ok';
     const idx = WEIGHTS.indexOf(current);
-    const next = WEIGHTS[(idx + 1) % WEIGHTS.length];
-    onChange(key, next);
+    return WEIGHTS[(idx + 1) % WEIGHTS.length];
   };
 
-  const applyDrag = (key: string) => {
-    if (dragging) onChange(key, dragging);
+  // Den pod daným bodem na obrazovce (pro malování přejetím přes více dnů).
+  const dayKeyFromPoint = (x: number, y: number): string | null => {
+    const el = document.elementFromPoint(x, y);
+    const cell = el?.closest('[data-day]') as HTMLElement | null;
+    if (!cell || cell.dataset.disabled === '1') return null;
+    return cell.dataset.day || null;
   };
+
+  const paintAt = (x: number, y: number) => {
+    if (!paintRef.current) return;
+    const key = dayKeyFromPoint(x, y);
+    if (!key || paintedRef.current.has(key)) return;
+    paintedRef.current.add(key);
+    onChange(key, paintRef.current);
+  };
+
+  const endStroke = () => {
+    paintRef.current = null;
+    paintedRef.current.clear();
+    movedRef.current = false;
+  };
+
+  // Globální listenery pro celý tah – fungují i když prst/kurzor opustí buňku.
+  useEffect(() => {
+    const onMove = (e: PointerEvent) => {
+      if (!paintRef.current) return;
+      e.preventDefault();
+      movedRef.current = true;
+      paintAt(e.clientX, e.clientY);
+    };
+    const onUp = () => {
+      if (paintRef.current) endStroke();
+    };
+    window.addEventListener('pointermove', onMove, { passive: false });
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
 
   const DOW = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne'];
 
@@ -84,7 +129,7 @@ export default function AvailabilityCalendar({ horizonStart, horizonEnd, value, 
         ))}
       </div>
 
-      <div className="grid grid-cols-7 gap-1">
+      <div ref={gridRef} className="grid grid-cols-7 gap-1" style={{ touchAction: 'none' }}>
         {Array.from({ length: paddingDays }).map((_, i) => <div key={`pad-${i}`} />)}
         {days.map(day => {
           const key = formatKey(day);
@@ -93,18 +138,20 @@ export default function AvailabilityCalendar({ horizonStart, horizonEnd, value, 
           return (
             <button
               key={key}
+              data-day={key}
+              data-disabled={inHorizon ? '0' : '1'}
               disabled={!inHorizon}
-              onMouseDown={() => {
+              onPointerDown={(e) => {
                 if (!inHorizon) return;
-                const next = WEIGHTS[(WEIGHTS.indexOf(w) + 1) % WEIGHTS.length];
-                setDragging(next);
+                // Posuneme den na další barvu a tu si zapamatujeme jako "štětec".
+                const next = nextWeight(key);
+                paintRef.current = next;
+                paintedRef.current = new Set([key]);
+                movedRef.current = false;
                 onChange(key, next);
-              }}
-              onMouseEnter={() => inHorizon && applyDrag(key)}
-              onMouseUp={() => setDragging(null)}
-              onTouchStart={() => {
-                if (!inHorizon) return;
-                cycleWeight(key);
+                // Pointer capture by zamknul move jen na tuto buňku – to nechceme,
+                // chceme malovat i přes ostatní dny, takže capture uvolníme.
+                (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
               }}
               className={`aspect-square rounded-lg text-xs font-medium flex items-center justify-center transition-colors ${
                 !inHorizon
