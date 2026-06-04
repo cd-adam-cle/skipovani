@@ -23,7 +23,9 @@ export function computeDayStats(
 ): DayStat[] {
   // participant -> day -> weight
   const lookup: Record<string, Record<string, AvailabilityWeight>> = {};
+  const nameById: Record<string, string> = {};
   const submitted = new Set<string>();
+  for (const p of participants) nameById[p.id] = p.name;
   for (const a of availability) {
     if (!lookup[a.participant_id]) lookup[a.participant_id] = {};
     lookup[a.participant_id][a.day] = a.weight;
@@ -37,6 +39,7 @@ export function computeDayStats(
   for (let i = 0; i < length; i++) {
     const day = addDays(horizonStart, i);
     let available = 0, ideal = 0, blocked = 0, rather = 0;
+    const names: string[] = [];
 
     for (const p of participants) {
       if (!submitted.has(p.id)) continue;
@@ -45,12 +48,13 @@ export function computeDayStats(
       if (w === 'no_go') blocked++;
       else {
         available++;
+        names.push(nameById[p.id] ?? '?');
         if (w === 'ideal') ideal++;
         if (w === 'rather_no') rather++;
       }
     }
 
-    stats.push({ day, available, ideal, blocked, rather, total });
+    stats.push({ day, available, ideal, blocked, rather, total, names });
   }
 
   return stats;

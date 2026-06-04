@@ -1,19 +1,8 @@
 export type AvailabilityWeight = 'ideal' | 'ok' | 'rather_no' | 'no_go';
 export type VoteValue = 'up' | 'down';
 
-export interface Trip {
-  id: string;
-  name: string;
-  organizer_name: string;
-  horizon_start: string;
-  horizon_end: string;
-  share_slug: string;
-  created_at: string;
-}
-
 export interface Participant {
   id: string;
-  trip_id: string;
   name: string;
   ideal_days: number;
   created_at: string;
@@ -28,7 +17,6 @@ export interface Availability {
 
 export interface Idea {
   id: string;
-  trip_id: string;
   title: string;
   emoji: string;
   created_by: string | null;
@@ -54,6 +42,8 @@ export interface DayStat {
   rather: number;
   /** celkový počet účastníků, co vyplnili dostupnost */
   total: number;
+  /** jména lidí, co ten den můžou */
+  names: string[];
 }
 
 /** Souvislé okno dní s nejvyšším překryvem. */

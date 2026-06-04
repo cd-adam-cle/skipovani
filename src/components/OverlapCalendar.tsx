@@ -95,7 +95,9 @@ export default function OverlapCalendar({ horizonStart, horizonEnd, stats, highl
           return (
             <div
               key={k}
-              title={stat ? `${stat.available}/${stat.total} může${stat.ideal ? ` · ${stat.ideal}× ideální` : ''}${stat.blocked ? ` · ${stat.blocked}× nemůže` : ''}` : 'Zatím bez odpovědí'}
+              title={stat && stat.total > 0
+                ? `${stat.available}/${stat.total} může${stat.names.length ? `: ${stat.names.join(', ')}` : ''}${stat.ideal ? ` · ${stat.ideal}× ideální` : ''}${stat.blocked ? ` · ${stat.blocked}× nemůže` : ''}`
+                : 'Zatím bez odpovědí'}
               className={`relative aspect-square rounded-lg flex flex-col items-center justify-center transition-all ${heatClasses(stat)} ${
                 isHi ? 'ring-2 ring-indigo-500 ring-offset-1' : ''
               }`}

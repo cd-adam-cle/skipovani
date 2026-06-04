@@ -1,6 +1,6 @@
 -- ============================================================
---  Skupinový plánovač výletů – zjednodušené schéma
---  Kalendář dostupnosti (překryvy) + nápady + slider dní
+--  Skupinový plánovač výletů – JEDEN univerzální kalendář
+--  Bez zakládání výletů. Každý vyznačí svůj čas → překryvy.
 -- ============================================================
 
 -- Drop legacy tables
@@ -16,21 +16,9 @@ drop table if exists idea_vote cascade;
 drop table if exists idea cascade;
 drop table if exists trip cascade;
 
--- Trip ------------------------------------------------------
-create table trip (
-  id              uuid primary key default gen_random_uuid(),
-  name            text not null,
-  organizer_name  text not null,
-  horizon_start   date not null,
-  horizon_end     date not null,
-  share_slug      text unique not null,
-  created_at      timestamptz default now()
-);
-
--- Participant -----------------------------------------------
+-- Participant (kdokoli, kdo vyznačí čas) --------------------
 create table participant (
   id              uuid primary key default gen_random_uuid(),
-  trip_id         uuid not null references trip(id) on delete cascade,
   name            text not null,
   ideal_days      int not null default 3,   -- "kolik dní mi sedí" (slider)
   created_at      timestamptz default now()
@@ -48,7 +36,6 @@ create table availability (
 -- Idea (nápad na destinaci) ---------------------------------
 create table idea (
   id              uuid primary key default gen_random_uuid(),
-  trip_id         uuid not null references trip(id) on delete cascade,
   title           text not null,
   emoji           text not null default '📍',
   created_by      uuid references participant(id) on delete set null,
@@ -64,14 +51,20 @@ create table idea_vote (
 );
 
 -- RLS: open (no auth) ---------------------------------------
-alter table trip enable row level security;
-alter table participant enable row level security;
-alter table availability enable row level security;
-alter table idea enable row level security;
-alter table idea_vote enable row level security;
+alter table participant   enable row level security;
+alter table availability  enable row level security;
+alter table idea          enable row level security;
+alter table idea_vote     enable row level security;
 
-create policy "open" on trip          for all using (true) with check (true);
 create policy "open" on participant   for all using (true) with check (true);
 create policy "open" on availability  for all using (true) with check (true);
 create policy "open" on idea          for all using (true) with check (true);
 create policy "open" on idea_vote     for all using (true) with check (true);
+
+-- Předvyplněné nápady ---------------------------------------
+insert into idea (title, emoji) values
+  ('Chata v Česku', '🏡'),
+  ('Chorvatsko – moře', '🏖️'),
+  ('Roadtrip', '🚐'),
+  ('Hory & turistika', '⛰️'),
+  ('Eurovíkend ve městě', '🏙️');
