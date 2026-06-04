@@ -111,10 +111,30 @@ export default function Home() {
     [hoverWindow]
   );
 
-  // ---- vstup jména → vytvoř participanta ----
+  // ---- vstup jména → převezmi existující záznam nebo vytvoř nový ----
   const handleStart = async () => {
     const n = nameInput.trim();
     if (!n) return;
+
+    // Stejné jméno (case-insensitive) → přihlas se jako existující, žádný duplikát
+    const { data: existing } = await supabase
+      .from('participant')
+      .select('*')
+      .ilike('name', n)
+      .order('created_at')
+      .limit(1)
+      .maybeSingle();
+
+    if (existing) {
+      localStorage.setItem(LS_KEY, existing.id);
+      setMyId(existing.id);
+      setMyName(existing.name);
+      setMyDays(existing.ideal_days || 3);
+      setTab('me');
+      setParticipants(p => p.some(x => x.id === existing.id) ? p : [...p, existing as Participant]);
+      return;
+    }
+
     const { data } = await supabase.from('participant').insert({ name: n }).select().single();
     if (data) {
       localStorage.setItem(LS_KEY, data.id);
@@ -154,6 +174,32 @@ export default function Home() {
       await supabase.from('participant').update({ ideal_days: v }).eq('id', myId);
       setParticipants(ps => ps.map(p => p.id === myId ? { ...p, ideal_days: v } : p));
     }
+  };
+
+  // ---- vzít zpět: vymazat jen moje vyplněné dny ----
+  const clearMyCalendar = async () => {
+    if (!myId) return;
+    if (!confirm('Vymazat všechny tvé vyplněné dny v kalendáři? Jméno, slider i hlasy zůstanou.')) return;
+    setMyAvail({});
+    setAvailability(av => av.filter(a => a.participant_id !== myId));
+    await supabase.from('availability').delete().eq('participant_id', myId);
+  };
+
+  // ---- odebrat mě úplně (kompletní reset, vyčistí session) ----
+  const removeMe = async () => {
+    if (!myId) return;
+    if (!confirm('Odebrat tě úplně? Smaže to tvou dostupnost, slider i hlasy a vyřadí tě z party. Tuto akci nelze vrátit.')) return;
+    const id = myId;
+    localStorage.removeItem(LS_KEY);
+    setMyId(null);
+    setMyName('');
+    setMyAvail({});
+    setMyDays(3);
+    setTab('overlap');
+    setParticipants(ps => ps.filter(p => p.id !== id));
+    setAvailability(av => av.filter(a => a.participant_id !== id));
+    setVotes(vs => vs.filter(v => v.participant_id !== id));
+    await supabase.from('participant').delete().eq('id', id); // cascade smaže availability/votes/notes
   };
 
   // ---- nápady ----
@@ -241,7 +287,32 @@ export default function Home() {
               )}
             </p>
           </div>
-          <LiveBadge />
+          {myId ? (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={clearMyCalendar}
+                title="Smaže jen tvé vyplněné dny v kalendáři"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 bg-white border border-slate-200 hover:border-amber-300 hover:text-amber-600 px-3 py-2 rounded-xl transition-colors"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a4 4 0 110 8H8m-5-8l4-4m-4 4l4 4" />
+                </svg>
+                Vymazat kalendář
+              </button>
+              <button
+                onClick={removeMe}
+                title="Odebere tě úplně z party (dostupnost, slider i hlasy)"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 bg-white border border-slate-200 hover:border-rose-300 hover:text-rose-600 px-3 py-2 rounded-xl transition-colors"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                Odebrat mě
+              </button>
+            </div>
+          ) : (
+            <LiveBadge />
+          )}
         </div>
 
         {/* Onboarding jména */}
