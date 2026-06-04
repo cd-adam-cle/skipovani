@@ -86,28 +86,46 @@ export function computeOverlapWindows(
   const horizonLen = daysBetween(horizonStart, horizonEnd) + 1;
   const windows: OverlapWindow[] = [];
 
-  for (let L = 1; L <= Math.min(maxLen, horizonLen); L++) {
+      for (let L = 1; L <= Math.min(maxLen, horizonLen); L++) {
     for (let off = 0; off + L <= horizonLen; off++) {
       const start = addDays(horizonStart, off);
       const end = addDays(horizonStart, off + L - 1);
       let attendees = 0;
       let idealCount = 0;
+      const attendeeNames: string[] = [];
+      const absentNames: string[] = [];
+      const ratherNoNames: string[] = [];
 
       for (const p of people) {
         let ok = true;
         let hasIdeal = false;
+        let hasRatherNo = false;
         for (let d = 0; d < L; d++) {
           const w = lookup[p.id]?.[addDays(start, d)];
           if (w === 'no_go') { ok = false; break; }
           if (w === 'ideal') hasIdeal = true;
+          if (w === 'rather_no') hasRatherNo = true;
         }
         if (ok) {
           attendees++;
+          attendeeNames.push(p.name);
           if (hasIdeal) idealCount++;
+          if (hasRatherNo) ratherNoNames.push(p.name);
+        } else {
+          absentNames.push(p.name);
         }
       }
 
-      windows.push({ start, end, length: L, attendees, idealCount });
+      windows.push({
+        start,
+        end,
+        length: L,
+        attendees,
+        idealCount,
+        attendeeNames,
+        absentNames,
+        ratherNoNames
+      });
     }
   }
 

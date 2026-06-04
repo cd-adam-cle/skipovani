@@ -29,6 +29,25 @@ export interface IdeaVote {
   value: VoteValue;
 }
 
+export interface IdeaNote {
+  id: string;
+  idea_id: string;
+  participant_id: string | null;
+  author_name: string;
+  body: string;
+  created_at: string;
+}
+
+export interface IdeaRename {
+  id: string;
+  idea_id: string;
+  participant_id: string | null;
+  author_name: string;
+  old_title: string;
+  new_title: string;
+  created_at: string;
+}
+
 /** Agregovaný stav jednoho dne napříč všemi účastníky. */
 export interface DayStat {
   day: string;
@@ -55,4 +74,10 @@ export interface OverlapWindow {
   attendees: number;
   /** kolik z nich má v okně aspoň jeden "ideální" den */
   idealCount: number;
+  /** jména lidí, co můžou */
+  attendeeNames: string[];
+  /** jména lidí, co nemůžou */
+  absentNames: string[];
+  /** jména lidí, co to mají jako 'spíš ne' na aspoň jeden den */
+  ratherNoNames: string[];
 }

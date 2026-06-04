@@ -50,16 +50,41 @@ create table idea_vote (
   primary key (idea_id, participant_id)
 );
 
+-- Idea note (poznámky / komentáře pod nápadem) --------------
+create table idea_note (
+  id              uuid primary key default gen_random_uuid(),
+  idea_id         uuid not null references idea(id) on delete cascade,
+  participant_id  uuid references participant(id) on delete set null,
+  author_name     text not null,
+  body            text not null,
+  created_at      timestamptz default now()
+);
+
+-- Idea rename (historie přejmenování názvu) -----------------
+create table idea_rename (
+  id              uuid primary key default gen_random_uuid(),
+  idea_id         uuid not null references idea(id) on delete cascade,
+  participant_id  uuid references participant(id) on delete set null,
+  author_name     text not null,
+  old_title       text not null,
+  new_title       text not null,
+  created_at      timestamptz default now()
+);
+
 -- RLS: open (no auth) ---------------------------------------
 alter table participant   enable row level security;
 alter table availability  enable row level security;
 alter table idea          enable row level security;
 alter table idea_vote     enable row level security;
+alter table idea_note     enable row level security;
+alter table idea_rename   enable row level security;
 
 create policy "open" on participant   for all using (true) with check (true);
 create policy "open" on availability  for all using (true) with check (true);
 create policy "open" on idea          for all using (true) with check (true);
 create policy "open" on idea_vote     for all using (true) with check (true);
+create policy "open" on idea_note     for all using (true) with check (true);
+create policy "open" on idea_rename   for all using (true) with check (true);
 
 -- Předvyplněné nápady ---------------------------------------
 insert into idea (title, emoji) values
