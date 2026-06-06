@@ -56,14 +56,49 @@ export interface DayStat {
   available: number;
   /** počet lidí, pro které je den ideální */
   ideal: number;
+  /** počet lidí, kteří den označili "ok" (může, bez nadšení) */
+  ok: number;
   /** počet lidí, kteří ten den nemůžou (no_go) */
   blocked: number;
   /** počet lidí, kteří den označili "spíš ne" */
   rather: number;
-  /** celkový počet účastníků, co vyplnili dostupnost */
+  /** počet lidí, co tento den vůbec nevyplnili (neutrální) */
+  unknown: number;
+  /** celkový počet účastníků, co vyplnili aspoň něco */
   total: number;
-  /** jména lidí, co ten den můžou */
+  /** jména lidí, co ten den můžou (ideal|ok|rather_no) */
   names: string[];
+  /** jména po stavech – pro detailní tooltip / přehled */
+  idealNames: string[];
+  okNames: string[];
+  ratherNames: string[];
+  blockedNames: string[];
+}
+
+/** Řádek jednoho člověka napříč celým horizontem – pro pruhový přehled. */
+export interface PersonRow {
+  id: string;
+  name: string;
+  idealDays: number;
+  /** den -> stav (jen vyplněné dny; chybějící = neutrální) */
+  byDay: Record<string, AvailabilityWeight>;
+  /** kolik dní vyplnil v jednotlivých kategoriích */
+  counts: { ideal: number; ok: number; rather: number; no: number; filled: number };
+  /** true pokud člověk ještě nevyplnil vůbec nic */
+  empty: boolean;
+}
+
+/** Jak se má v překryvech zacházet se stavem "spíš ne". */
+export type RatherNoMode = 'counts' | 'excludes';
+
+/** Nastavení hledání překryvových oken. */
+export interface OverlapOptions {
+  /** minimální počet lidí, co musí v okně být (0 = bez limitu, jen seřadit) */
+  minAttendees?: number;
+  /** "spíš ne" se počítá jako že může (counts) nebo vyřazuje (excludes) */
+  ratherNo?: RatherNoMode;
+  maxLen?: number;
+  topN?: number;
 }
 
 /** Souvislé okno dní s nejvyšším překryvem. */
@@ -71,14 +106,18 @@ export interface OverlapWindow {
   start: string;
   end: string;
   length: number;
-  /** počet lidí, co můžou všechny dny v okně */
+  /** počet lidí, co můžou všechny dny v okně (dle nastavení) */
   attendees: number;
   /** kolik z nich má v okně aspoň jeden "ideální" den */
   idealCount: number;
+  /** kolik účastníků by okno bralo jako čistě ideál/ok (žádný 'spíš ne') */
+  cleanCount: number;
   /** jména lidí, co můžou */
   attendeeNames: string[];
   /** jména lidí, co nemůžou */
   absentNames: string[];
   /** jména lidí, co to mají jako 'spíš ne' na aspoň jeden den */
   ratherNoNames: string[];
+  /** kdo okno blokuje (má no_go) – = absentNames při ratherNo:counts */
+  blockerNames: string[];
 }

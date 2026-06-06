@@ -17,17 +17,25 @@ interface Props {
   highlight?: Set<string>;
 }
 
-/** Vrátí tailwind třídy pro buňku podle podílu lidí, co můžou. */
+/**
+ * Vrátí tailwind třídy pro buňku. Bere v potaz nejen KOLIK lidí může,
+ * ale i KVALITU – "všichni nadšení" je tmavší než "všichni jen kývli".
+ * Skóre: ideál plná váha, ok 0.6, spíš-ne 0.25.
+ */
 function heatClasses(stat: DayStat | undefined): string {
   if (!stat || stat.total === 0) return 'bg-slate-50 text-slate-300';
   if (stat.blocked > 0 && stat.available === 0) return 'bg-rose-100 text-rose-400';
-  const ratio = stat.available / stat.total;
-  if (ratio >= 0.999) return 'bg-emerald-500 text-white';
-  if (ratio >= 0.75) return 'bg-emerald-400 text-white';
-  if (ratio >= 0.5) return 'bg-emerald-200 text-emerald-900';
-  if (ratio >= 0.25) return 'bg-amber-200 text-amber-900';
-  if (ratio > 0) return 'bg-amber-100 text-amber-700';
-  return 'bg-slate-100 text-slate-400';
+  // den, kdy můžou úplně všichni a všem se to líbí → nejtmavší (indigo)
+  if (stat.blocked === 0 && stat.available === stat.total && stat.ideal === stat.total) {
+    return 'bg-indigo-600 text-white';
+  }
+  const score = (stat.ideal + stat.ok * 0.6 + stat.rather * 0.25) / stat.total;
+  if (score >= 0.85) return 'bg-emerald-600 text-white';
+  if (score >= 0.65) return 'bg-emerald-500 text-white';
+  if (score >= 0.45) return 'bg-emerald-400 text-white';
+  if (score >= 0.25) return 'bg-emerald-200 text-emerald-900';
+  if (score > 0) return 'bg-amber-200 text-amber-900';
+  return 'bg-rose-100 text-rose-400';
 }
 
 export default function OverlapCalendar({ horizonStart, horizonEnd, stats, highlight }: Props) {
@@ -96,7 +104,13 @@ export default function OverlapCalendar({ horizonStart, horizonEnd, stats, highl
             <div
               key={k}
               title={stat && stat.total > 0
-                ? `${stat.available}/${stat.total} může${stat.names.length ? `: ${stat.names.join(', ')}` : ''}${stat.ideal ? ` · ${stat.ideal}× ideální` : ''}${stat.blocked ? ` · ${stat.blocked}× nemůže` : ''}`
+                ? [
+                    `${stat.available}/${stat.total} může`,
+                    stat.idealNames.length ? `⭐ ideál: ${stat.idealNames.join(', ')}` : '',
+                    stat.okNames.length ? `✓ ok: ${stat.okNames.join(', ')}` : '',
+                    stat.ratherNames.length ? `~ spíš ne: ${stat.ratherNames.join(', ')}` : '',
+                    stat.blockedNames.length ? `✕ nemůže: ${stat.blockedNames.join(', ')}` : '',
+                  ].filter(Boolean).join('\n')
                 : 'Zatím bez odpovědí'}
               className={`relative aspect-square rounded-lg flex flex-col items-center justify-center transition-all ${heatClasses(stat)} ${
                 isHi ? 'ring-2 ring-indigo-500 ring-offset-1' : ''
@@ -121,9 +135,10 @@ export default function OverlapCalendar({ horizonStart, horizonEnd, stats, highl
       </div>
 
       <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-5 text-[11px] text-slate-500">
-        <Legend className="bg-emerald-500" label="Všichni" />
-        <Legend className="bg-emerald-300" label="Většina" />
-        <Legend className="bg-amber-200" label="Pár lidí" />
+        <Legend className="bg-indigo-600" label="Všem ideální" />
+        <Legend className="bg-emerald-500" label="Většině sedí" />
+        <Legend className="bg-emerald-200" label="Spíš ano" />
+        <Legend className="bg-amber-200" label="Vlažné" />
         <Legend className="bg-rose-100" label="Nikdo / blokováno" />
         <span className="flex items-center gap-1">
           <svg className="w-3.5 h-3.5 text-amber-400 fill-amber-400 mr-0.5" viewBox="0 0 20 20">

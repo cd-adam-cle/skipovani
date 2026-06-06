@@ -3,14 +3,15 @@ export const dynamic = 'force-dynamic';
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { HORIZON_START, HORIZON_END } from '@/lib/config';
-import { computeDayStats, computeOverlapWindows } from '@/lib/engine';
+import { computeDayStats, computeOverlapWindows, computePersonRows } from '@/lib/engine';
 import AvailabilityCalendar from '@/components/AvailabilityCalendar';
 import OverlapCalendar from '@/components/OverlapCalendar';
+import PeopleTimeline from '@/components/PeopleTimeline';
 import TopWindows from '@/components/TopWindows';
 import IdeaBoard from '@/components/IdeaBoard';
 import DaysSlider from '@/components/DaysSlider';
 import LiveBadge from '@/components/LiveBadge';
-import type { Participant, Availability, Idea, IdeaVote, IdeaNote, IdeaRename, VoteValue, AvailabilityWeight, OverlapWindow } from '@/lib/types';
+import type { Participant, Availability, Idea, IdeaVote, IdeaNote, IdeaRename, VoteValue, AvailabilityWeight, OverlapWindow, RatherNoMode } from '@/lib/types';
 
 const LS_KEY = 'trip_me_id';
 
@@ -41,10 +42,12 @@ export default function Home() {
   const [myAvail, setMyAvail] = useState<Record<string, AvailabilityWeight>>({});
   const [myDays, setMyDays] = useState(3);
 
-  const [tab, setTab] = useState<'me' | 'overlap'>(() =>
+  const [tab, setTab] = useState<'me' | 'overlap' | 'people'>(() =>
     typeof window !== 'undefined' && localStorage.getItem(LS_KEY) ? 'me' : 'overlap'
   );
   const [hoverWindow, setHoverWindow] = useState<OverlapWindow | null>(null);
+  const [minAttendees, setMinAttendees] = useState(0);
+  const [ratherNo, setRatherNo] = useState<RatherNoMode>('counts');
   const [savedFlash, setSavedFlash] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -99,7 +102,11 @@ export default function Home() {
     [participants, availability]
   );
   const windows = useMemo(
-    () => computeOverlapWindows(HORIZON_START, HORIZON_END, participants, availability),
+    () => computeOverlapWindows(HORIZON_START, HORIZON_END, participants, availability, { minAttendees, ratherNo }),
+    [participants, availability, minAttendees, ratherNo]
+  );
+  const personRows = useMemo(
+    () => computePersonRows(participants, availability),
     [participants, availability]
   );
   const submittedCount = useMemo(() => {
@@ -361,6 +368,19 @@ export default function Home() {
                     <span>Překryvy</span>
                   </button>
                   <button
+                    onClick={() => setTab('people')}
+                    className={`inline-flex items-center px-3.5 py-1.5 rounded-lg transition-all ${
+                      tab === 'people'
+                        ? 'bg-white shadow-sm text-slate-800 font-bold'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    <svg className="w-4 h-4 mr-1.5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 14h18M3 6h18M3 18h18" />
+                    </svg>
+                    <span>Kdo jak</span>
+                  </button>
+                  <button
                     onClick={() => myId && setTab('me')}
                     disabled={!myId}
                     className={`inline-flex items-center px-3.5 py-1.5 rounded-lg transition-all disabled:opacity-40 ${
@@ -385,10 +405,10 @@ export default function Home() {
               {tab === 'me' && myId ? (
                 <>
                   <p className="text-xs text-slate-400 mb-5 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                    Klikáním nebo tažením myší označ dny. Opakovaným kliknutím změníš stav: 
-                    <strong className="text-emerald-600 font-semibold ml-1">Ideální</strong> → 
-                    <strong className="text-slate-600 font-semibold ml-1">Ok</strong> → 
-                    <strong className="text-amber-600 font-semibold ml-1">Spíš ne</strong> → 
+                    Klikáním nebo tažením myší označ dny. Opakovaným kliknutím změníš stav:
+                    <strong className="text-emerald-600 font-semibold ml-1">Ideální</strong> →
+                    <strong className="text-slate-600 font-semibold ml-1">Ok</strong> →
+                    <strong className="text-amber-600 font-semibold ml-1">Spíš ne</strong> →
                     <strong className="text-rose-600 font-semibold ml-1">Nemůžu</strong>.
                   </p>
                   <AvailabilityCalendar
@@ -398,6 +418,15 @@ export default function Home() {
                     onChange={changeDay}
                   />
                 </>
+              ) : tab === 'people' ? (
+                <PeopleTimeline
+                  horizonStart={HORIZON_START}
+                  horizonEnd={HORIZON_END}
+                  rows={personRows}
+                  stats={stats}
+                  myId={myId}
+                  highlight={highlight}
+                />
               ) : (
                 <OverlapCalendar
                   horizonStart={HORIZON_START}
@@ -431,7 +460,15 @@ export default function Home() {
                 </svg>
                 <h2 className="font-bold text-slate-800 text-sm">Nejlepší termíny</h2>
               </div>
-              <TopWindows windows={windows} totalPeople={submittedCount} onHover={setHoverWindow} />
+              <TopWindows
+                windows={windows}
+                totalPeople={submittedCount}
+                onHover={setHoverWindow}
+                minAttendees={minAttendees}
+                ratherNo={ratherNo}
+                onMinAttendees={setMinAttendees}
+                onRatherNo={setRatherNo}
+              />
             </section>
 
             <section className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-6 hover:shadow-md transition-shadow duration-300">
